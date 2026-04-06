@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Sparkles, Upload, Palette, Mic, FileText, Play,
-  Camera, Wand2, Zap, MonitorPlay, GraduationCap, Award, Shield,
+  Wand2, Zap, MonitorPlay, GraduationCap, Award, Shield,
   CameraOff, Brain, Clock, MousePointerClick
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
