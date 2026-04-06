@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     const userId = claimsData.user.id;
     const { resultId, imageUrl, style, voice, script, title } = await req.json();
 
+    // voice is now the voiceid from public_voices table
     if (!resultId || !imageUrl || !style || !voice || !script) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
       user_id: userId,
       image_url: imageUrl,
       style,
-      voice,
+      voice_id: voice,
       script,
       title,
       supabase_url: supabaseUrl,
