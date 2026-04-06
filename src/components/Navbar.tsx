@@ -1,13 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
-import { Moon, Sun, Menu, X, Sparkles } from "lucide-react";
+import { Moon, Sun, Menu, X, Sparkles, LogOut, User } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { useState } from "react";
 import { Button } from "./ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const links = [
     { to: "/", label: "Home" },
@@ -42,11 +44,22 @@ const Navbar = () => {
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <Link to="/create">
-            <Button size="sm" className="gradient-bg text-white border-0">
-              Try Zockto
-            </Button>
-          </Link>
+          {user ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                {user.email}
+              </span>
+              <Button size="sm" variant="outline" onClick={signOut}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <Link to="/auth">
+              <Button size="sm" className="gradient-bg text-white border-0">
+                Sign In
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -73,11 +86,20 @@ const Navbar = () => {
               {l.label}
             </Link>
           ))}
-          <Link to="/create" onClick={() => setMobileOpen(false)}>
-            <Button size="sm" className="gradient-bg text-white border-0 mt-2 w-full">
-              Try Zockto
-            </Button>
-          </Link>
+          {user ? (
+            <div className="mt-2 space-y-2">
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              <Button size="sm" variant="outline" className="w-full" onClick={() => { signOut(); setMobileOpen(false); }}>
+                <LogOut className="h-4 w-4 mr-1" /> Sign Out
+              </Button>
+            </div>
+          ) : (
+            <Link to="/auth" onClick={() => setMobileOpen(false)}>
+              <Button size="sm" className="gradient-bg text-white border-0 mt-2 w-full">
+                Sign In
+              </Button>
+            </Link>
+          )}
         </div>
       )}
     </nav>
