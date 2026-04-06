@@ -188,7 +188,7 @@ const Create = () => {
             variant: "destructive",
           });
         } else {
-          setProgress((p) => Math.min(p + 5, 95));
+          setProgress((p) => Math.min(p + 0.4, 95));
         }
       }, 2000);
     } catch (error: any) {
