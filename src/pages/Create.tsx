@@ -1,8 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, Palette, Mic, FileText, Play, ChevronLeft, ChevronRight,
-  Check, Loader2, Image as ImageIcon, LogIn
+  Check, Loader2, Image as ImageIcon, LogIn, Volume2, Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 
+interface PublicVoice {
+  id: string;
+  name: string;
+  age: number | null;
+  citizen: string | null;
+  gender: string | null;
+  voicelink: string | null;
+  voiceid: string | null;
+  language: string | null;
+  lang_code: string | null;
+  description: string | null;
+}
+
 const STYLES = [
   { id: "studio", label: "Studio", emoji: "🎬" },
   { id: "cafe", label: "Cafe", emoji: "☕" },
@@ -19,15 +32,6 @@ const STYLES = [
   { id: "office", label: "Office", emoji: "🏢" },
   { id: "neon", label: "Neon", emoji: "💜" },
   { id: "minimal", label: "Minimal", emoji: "⚪" },
-];
-
-const VOICES = [
-  { id: "alloy-m", name: "Alloy", gender: "Male", lang: "English" },
-  { id: "nova-f", name: "Nova", gender: "Female", lang: "English" },
-  { id: "echo-m", name: "Echo", gender: "Male", lang: "English" },
-  { id: "shimmer-f", name: "Shimmer", gender: "Female", lang: "English" },
-  { id: "onyx-m", name: "Onyx", gender: "Male", lang: "English" },
-  { id: "fable-f", name: "Fable", gender: "Female", lang: "English" },
 ];
 
 const STEPS = [
@@ -47,9 +51,38 @@ const Create = () => {
   const [script, setScript] = useState("");
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [voices, setVoices] = useState<PublicVoice[]>([]);
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchVoices = async () => {
+      const { data } = await supabase
+        .from("public_voices")
+        .select("*")
+        .order("name");
+      if (data) setVoices(data as PublicVoice[]);
+    };
+    fetchVoices();
+  }, []);
+
+  const handlePlayVoice = (voicelink: string, voiceId: string) => {
+    if (playingVoice === voiceId) {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setPlayingVoice(null);
+      return;
+    }
+    audioRef.current?.pause();
+    const audio = new Audio(voicelink);
+    audio.onended = () => setPlayingVoice(null);
+    audio.play();
+    audioRef.current = audio;
+    setPlayingVoice(voiceId);
+  };
 
   const handleImageDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -278,25 +311,44 @@ const Create = () => {
             {step === 2 && (
               <div>
                 <h2 className="text-xl font-semibold mb-1">Choose a Voice</h2>
-                <p className="text-sm text-muted-foreground mb-4">Cartesia API voices</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {VOICES.map((v) => (
+                <p className="text-sm text-muted-foreground mb-4">Preview and select a voice</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-1">
+                  {voices.map((v) => (
                     <button
                       key={v.id}
-                      onClick={() => setVoice(v.id)}
+                      onClick={() => setVoice(v.voiceid || v.id)}
                       className={`glass rounded-xl p-4 text-left transition-all hover:border-primary/50 flex items-center gap-3 ${
-                        voice === v.id ? "border-primary ring-2 ring-primary/30" : ""
+                        voice === (v.voiceid || v.id) ? "border-primary ring-2 ring-primary/30" : ""
                       }`}
                     >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                         v.gender === "Male" ? "bg-blue-500/20 text-blue-400" : "bg-pink-500/20 text-pink-400"
                       }`}>
                         {v.name[0]}
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">{v.name}</div>
-                        <div className="text-xs text-muted-foreground">{v.gender} · {v.lang}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {v.gender} · {v.language === "hi" ? "Hindi" : "English"}
+                          {v.age ? ` · ${v.age}y` : ""}
+                        </div>
+                        {v.description && (
+                          <div className="text-xs text-muted-foreground/70 truncate mt-0.5">{v.description}</div>
+                        )}
                       </div>
+                      {v.voicelink && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayVoice(v.voicelink!, v.id);
+                          }}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                            playingVoice === v.id ? "bg-primary/20 text-primary" : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                          }`}
+                        >
+                          {playingVoice === v.id ? <Square className="h-3 w-3" /> : <Volume2 className="h-3.5 w-3.5" />}
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -338,7 +390,7 @@ const Create = () => {
                       <div className="text-sm text-muted-foreground">Style:</div>
                       <div className="text-sm font-medium capitalize">{style}</div>
                       <div className="text-sm text-muted-foreground">Voice:</div>
-                      <div className="text-sm font-medium">{VOICES.find(v => v.id === voice)?.name}</div>
+                      <div className="text-sm font-medium">{voices.find(v => (v.voiceid || v.id) === voice)?.name}</div>
                       <div className="text-sm text-muted-foreground">Script:</div>
                       <div className="text-sm font-medium truncate">{script.slice(0, 50)}...</div>
                     </div>
