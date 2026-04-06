@@ -6,6 +6,7 @@ import {
   CameraOff, Brain, Clock, MousePointerClick
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import drSumanImg from "@/assets/dr-suman.jpg";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -104,9 +105,11 @@ const Index = () => {
             className="glass rounded-2xl p-8 max-w-md mx-auto"
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={1}
           >
-            <div className="w-20 h-20 rounded-full gradient-bg mx-auto mb-4 flex items-center justify-center">
-              <GraduationCap className="h-10 w-10 text-white" />
-            </div>
+            <img
+              src={drSumanImg}
+              alt="Dr. Ugrasen Suman"
+              className="w-28 h-28 rounded-full mx-auto mb-4 object-cover border-4 border-primary/30 shadow-lg"
+            />
             <h3 className="text-xl font-bold">Dr. Ugrasen Suman</h3>
             <p className="text-muted-foreground text-sm mt-1">Faculty, SCSIT DAVV Indore</p>
           </motion.div>
