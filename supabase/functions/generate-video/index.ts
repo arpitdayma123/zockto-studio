@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WEBHOOK_URL = "https://whatsappauto.zockto.com/webhook/avatar_generation";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -53,29 +55,46 @@ Deno.serve(async (req) => {
       .eq("id", resultId)
       .eq("user_id", userId);
 
-    // TODO: Replace with actual AI video generation webhook call
-    // For now, simulate processing and mark as success after a delay
-    // In production, you would:
-    // 1. Send webhook to your AI service with image, style, voice, script
-    // 2. The AI service processes the video
-    // 3. The AI service calls back to update the video_results row with video_url
+    // Send POST webhook to external avatar generation service
+    const webhookPayload = {
+      video_id: resultId,
+      user_id: userId,
+      image_url: imageUrl,
+      style,
+      voice,
+      script,
+      title,
+      supabase_url: supabaseUrl,
+      supabase_service_key: supabaseServiceKey,
+    };
 
-    // Simulate: mark as success with a placeholder
-    setTimeout(async () => {
+    const webhookResponse = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookPayload),
+    });
+
+    if (!webhookResponse.ok) {
+      const errorText = await webhookResponse.text();
+      console.error("Webhook error:", errorText);
+      // Mark as failed if webhook call itself fails
       await adminClient
         .from("video_results")
-        .update({
-          status: "success",
-          video_url: "https://www.w3schools.com/html/mov_bbb.mp4", // placeholder
-        })
+        .update({ status: "failed", error_message: `Webhook error: ${webhookResponse.status}` })
         .eq("id", resultId);
-    }, 10000); // 10 second simulated processing
+
+      return new Response(
+        JSON.stringify({ error: "Failed to trigger video generation" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ message: "Video generation started", resultId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("Edge function error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
