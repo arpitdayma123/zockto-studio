@@ -133,9 +133,9 @@ const Results = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
               >
-                <div className="aspect-video bg-secondary flex items-center justify-center">
+                <div className="aspect-[9/16] bg-secondary flex items-center justify-center max-h-[400px] mx-auto">
                   {video.video_url ? (
-                    <video src={video.video_url} controls className="w-full h-full object-cover" />
+                    <video src={video.video_url} controls className="w-full h-full object-contain" />
                   ) : (
                     <Play className="h-10 w-10 text-muted-foreground" />
                   )}
