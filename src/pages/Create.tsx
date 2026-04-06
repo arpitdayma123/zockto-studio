@@ -2,12 +2,15 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, Palette, Mic, FileText, Play, ChevronLeft, ChevronRight,
-  Check, Loader2, Image as ImageIcon
+  Check, Loader2, Image as ImageIcon, LogIn
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Link, useNavigate } from "react-router-dom";
 
 const STYLES = [
   { id: "studio", label: "Studio", emoji: "🎬" },
@@ -45,6 +48,8 @@ const Create = () => {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const handleImageDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -72,29 +77,119 @@ const Create = () => {
   };
 
   const handleGenerate = async () => {
+    if (!user || !image) return;
     setGenerating(true);
     setProgress(0);
-    // Simulate progress
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 95) { clearInterval(interval); return 95; }
-        return p + Math.random() * 15;
-      });
-    }, 500);
 
-    // Simulate webhook call
-    setTimeout(() => {
-      clearInterval(interval);
-      setProgress(100);
-      setTimeout(() => {
-        setGenerating(false);
-        toast({
-          title: "Video Generated!",
-          description: "Your AI video has been created. Check the Results page.",
-        });
-      }, 500);
-    }, 5000);
+    try {
+      // 1. Upload image to storage
+      const fileExt = image.name.split(".").pop();
+      const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("user-uploads")
+        .upload(filePath, image);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("user-uploads")
+        .getPublicUrl(filePath);
+
+      setProgress(20);
+
+      // 2. Create video_results entry
+      const resultId = crypto.randomUUID();
+      const { error: insertError } = await supabase.from("video_results").insert({
+        id: resultId,
+        user_id: user.id,
+        title: image.name.replace(/\.[^/.]+$/, ""),
+        status: "pending",
+        image_url: urlData.publicUrl,
+        style,
+        voice,
+        script,
+      });
+
+      if (insertError) throw insertError;
+      setProgress(40);
+
+      // 3. Call edge function
+      const { error: fnError } = await supabase.functions.invoke("generate-video", {
+        body: {
+          resultId,
+          imageUrl: urlData.publicUrl,
+          style,
+          voice,
+          script,
+          title: image.name,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      // 4. Poll for completion
+      const pollInterval = setInterval(async () => {
+        const { data } = await supabase
+          .from("video_results")
+          .select("status")
+          .eq("id", resultId)
+          .single();
+
+        if (data?.status === "success") {
+          clearInterval(pollInterval);
+          setProgress(100);
+          setTimeout(() => {
+            setGenerating(false);
+            toast({
+              title: "Video Generated!",
+              description: "Your AI video is ready. Redirecting to results...",
+            });
+            navigate("/results");
+          }, 500);
+        } else if (data?.status === "failed") {
+          clearInterval(pollInterval);
+          setGenerating(false);
+          toast({
+            title: "Generation Failed",
+            description: "Something went wrong. Please try again.",
+            variant: "destructive",
+          });
+        } else {
+          setProgress((p) => Math.min(p + 5, 95));
+        }
+      }, 2000);
+    } catch (error: any) {
+      setGenerating(false);
+      toast({
+        title: "Error",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
+        <motion.div
+          className="glass rounded-2xl p-12 text-center max-w-md mx-4"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <LogIn className="h-12 w-12 mx-auto mb-4 text-primary" />
+          <h2 className="text-xl font-semibold mb-2">Sign In Required</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            You need to sign in to create AI videos.
+          </p>
+          <Link to="/auth">
+            <Button className="gradient-bg text-white border-0">
+              Sign In <LogIn className="h-4 w-4 ml-1" />
+            </Button>
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pt-24 pb-12">
@@ -136,7 +231,6 @@ const Create = () => {
             exit={{ opacity: 0, x: -20 }}
             className="glass rounded-2xl p-8"
           >
-            {/* Step 0: Upload */}
             {step === 0 && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Upload Your Image</h2>
@@ -160,7 +254,6 @@ const Create = () => {
               </div>
             )}
 
-            {/* Step 1: Style */}
             {step === 1 && (
               <div>
                 <h2 className="text-xl font-semibold mb-1">Select Image Style</h2>
@@ -182,7 +275,6 @@ const Create = () => {
               </div>
             )}
 
-            {/* Step 2: Voice */}
             {step === 2 && (
               <div>
                 <h2 className="text-xl font-semibold mb-1">Choose a Voice</h2>
@@ -211,7 +303,6 @@ const Create = () => {
               </div>
             )}
 
-            {/* Step 3: Script */}
             {step === 3 && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Enter Your Script</h2>
@@ -228,7 +319,6 @@ const Create = () => {
               </div>
             )}
 
-            {/* Step 4: Review & Generate */}
             {step === 4 && (
               <div className="text-center">
                 {generating ? (
@@ -266,7 +356,6 @@ const Create = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation */}
         {!generating && (
           <div className="flex justify-between mt-6">
             <Button
