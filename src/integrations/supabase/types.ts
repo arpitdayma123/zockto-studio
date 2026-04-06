@@ -44,6 +44,51 @@ export type Database = {
         }
         Relationships: []
       }
+      public_voices: {
+        Row: {
+          age: number | null
+          citizen: string | null
+          created_at: string
+          description: string | null
+          gender: string | null
+          id: string
+          lang_code: string | null
+          language: string | null
+          name: string
+          voice_assign: string | null
+          voiceid: string | null
+          voicelink: string | null
+        }
+        Insert: {
+          age?: number | null
+          citizen?: string | null
+          created_at?: string
+          description?: string | null
+          gender?: string | null
+          id?: string
+          lang_code?: string | null
+          language?: string | null
+          name: string
+          voice_assign?: string | null
+          voiceid?: string | null
+          voicelink?: string | null
+        }
+        Update: {
+          age?: number | null
+          citizen?: string | null
+          created_at?: string
+          description?: string | null
+          gender?: string | null
+          id?: string
+          lang_code?: string | null
+          language?: string | null
+          name?: string
+          voice_assign?: string | null
+          voiceid?: string | null
+          voicelink?: string | null
+        }
+        Relationships: []
+      }
       video_results: {
         Row: {
           created_at: string
